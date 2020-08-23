@@ -25,7 +25,7 @@ class Net(torch.nn.Module):
         return q
 
 
-def get_action(s, net):
+def get_action(s, net, verbose=False):
     import random
     if random.uniform(0, 1) < 0.05:
         return random.randint(0, 1)
@@ -33,6 +33,8 @@ def get_action(s, net):
     for a in range(2):
         a_tensor = torch.tensor([a], dtype=torch.long)
         q = net(s, a_tensor)
+        if verbose:
+            print('{}, {} has value: {}'.format(s, a, q))
         if max_a == -1 or max_q < q:
             max_q, max_a = q, a
 
@@ -51,7 +53,7 @@ for epoch in range(300):
     ob = np.array(((0, 0, 0, 0),), dtype=np.float32)
     done = False
     while not done:
-        action = get_action(ob, net)
+        action = get_action(ob, net, verbose=False)
         path.append([ob, [action], 0])
         ob, r, done, info = env.step(action)
         path[-1][-1] = r
