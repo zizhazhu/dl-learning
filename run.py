@@ -26,6 +26,9 @@ class Net(torch.nn.Module):
 
 
 def get_action(s, net):
+    import random
+    if random.uniform(0, 1) < 0.05:
+        return random.randint(0, 1)
     max_q, max_a = 1, -1
     for a in range(2):
         a_tensor = torch.tensor([a], dtype=torch.long)
