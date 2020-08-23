@@ -33,7 +33,7 @@ def get_action(s, net):
     for a in range(2):
         a_tensor = torch.tensor([a], dtype=torch.long)
         q = net(s, a_tensor)
-        if max_a == -1 or max_q < a:
+        if max_a == -1 or max_q < q:
             max_q, max_a = q, a
 
     return max_a
