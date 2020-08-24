@@ -25,23 +25,32 @@ class Net(torch.nn.Module):
         return q
 
 
-def get_action(s, net, verbose=False):
-    import random
-    max_q, max_a = 1, -1
-    if random.uniform(0, 1) < 0.05:
-        max_a = random.randint(0, 1)
-        if verbose:
-            print('explore {}'.format(max_a))
-        return max_a
-    for a in range(2):
-        a_tensor = torch.tensor([a], dtype=torch.long)
-        q = net(s, a_tensor)
-        if verbose:
-            print('{}, {} has value: {}'.format(s, a, q))
-        if max_a == -1 or max_q < q:
-            max_q, max_a = q, a
+class MCAgent:
 
-    return max_a
+    def __init__(self, model, action_space, epsilon=0.05):
+        self._model = model
+        self._action_space = action_space
+        self._epsilon = epsilon
+
+    def get_action(self, s, verbose=False):
+        max_q, max_a = 1, -1
+
+        import random
+        if random.uniform(0, 1) < self._epsilon:
+            max_a = random.randint(0, self._action_space - 1)
+            if verbose:
+                print('explore {}'.format(max_a))
+            return max_a
+
+        for a in range(self._action_space):
+            a_tensor = torch.tensor([a], dtype=torch.long)
+            q = self._model(s, a_tensor)
+            if verbose:
+                print('{}, {} has value: {}'.format(s, a, q))
+            if max_a == -1 or max_q < q:
+                max_q, max_a = q, a
+
+        return max_a
 
 
 env = gym.make('CartPole-v0')
@@ -52,12 +61,14 @@ gamma = 0.5
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
 
+agent = MCAgent(net, env.action_space.n)
+
 for epoch in range(300):
     path = []
     ob = np.array(((0, 0, 0, 0),), dtype=np.float32)
     done = False
     while not done:
-        action = get_action(ob, net, verbose=False)
+        action = agent.get_action(ob, verbose=False)
         path.append([ob, [action], 0])
         ob, r, done, info = env.step(action)
         env.render()
