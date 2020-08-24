@@ -1,4 +1,5 @@
 import gym
+from functools import reduce
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,24 +16,59 @@ class Net(torch.nn.Module):
         self.output = torch.nn.Linear(128, 1)
 
     def forward(self, s, a):
-        s = torch.tensor(s, dtype=torch.float)
-        a = torch.tensor(a, dtype=torch.long)
-        a_embed = self.action_embed(a)
-        s_embed = F.relu(self.state_trans(s))
-        sa = torch.cat((s_embed, a_embed), dim=1)
+        s_tensor = torch.tensor(s, dtype=torch.float)
+        a_tensor = torch.tensor(a, dtype=torch.long)
+        a_embed = self.action_embed(a_tensor)
+        s_embed = F.relu(self.state_trans(s_tensor))
+        sa = torch.cat((s_embed, a_embed), dim=-1)
         sa = F.relu(self.fc2(sa))
-        q = self.output(sa)
+        q = torch.squeeze(self.output(sa))
         return q
+
+
+class Memory:
+
+    def __init__(self):
+        self._s = []
+        self._a = []
+        self._r = []
+
+    def add(self, s, a, r):
+        self._s.append(s)
+        self._a.append(a)
+        self._r.append(r)
+
+    @property
+    def s_tensor(self):
+        return torch.tensor(self._s)
+
+    @property
+    def a_tensor(self):
+        return torch.tensor(self._a)
+
+    @property
+    def r_tensor(self):
+        return torch.tensor(self._r)
+
+    def r_list(self):
+        return list(self._r)
 
 
 class MCAgent:
 
-    def __init__(self, model, action_space, epsilon=0.05):
+    def __init__(self, model, action_space, epsilon=0.05, gamma=0.1):
         self._model = model
         self._action_space = action_space
         self._epsilon = epsilon
+        self._gamma = gamma
+
+        self._memory = Memory()
+        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
+        self._criterion = nn.MSELoss()
 
     def get_action(self, s, verbose=False):
+        # s.shape: m * n
+        # a.shape: m
         max_q, max_a = 1, -1
 
         import random
@@ -40,52 +76,61 @@ class MCAgent:
             max_a = random.randint(0, self._action_space - 1)
             if verbose:
                 print('explore {}'.format(max_a))
-            return max_a
-
-        for a in range(self._action_space):
-            a_tensor = torch.tensor([a], dtype=torch.long)
-            q = self._model(s, a_tensor)
-            if verbose:
-                print('{}, {} has value: {}'.format(s, a, q))
-            if max_a == -1 or max_q < q:
-                max_q, max_a = q, a
+        else:
+            for a in range(self._action_space):
+                q = self._model(s, a).item()
+                if verbose:
+                    print('{}, {} has value: {}'.format(s, a, q))
+                if max_a == -1 or max_q < q:
+                    max_q, max_a = q, a
 
         return max_a
 
+    def record(self, s, a, r):
+        self._memory.add(s, a, r)
 
-env = gym.make('CartPole-v0')
-env.reset()
-net = Net()
-gamma = 0.5
+    def train(self):
+        self._optimizer.zero_grad()
 
-criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+        g_list = self._memory.r_list()
+        for i in range(len(g_list) - 2, -1, -1):
+            g_list[i] += self._gamma * g_list[i+1]
+        g_tensor = torch.tensor(g_list)
 
-agent = MCAgent(net, env.action_space.n)
+        outputs = self._model(self._memory.s_tensor, self._memory.a_tensor)
 
-for epoch in range(300):
-    path = []
-    ob = np.array(((0, 0, 0, 0),), dtype=np.float32)
-    done = False
-    while not done:
-        action = agent.get_action(ob, verbose=False)
-        path.append([ob, [action], 0])
-        ob, r, done, info = env.step(action)
-        env.render()
-        path[-1][-1] = r
-        ob = (ob,)
-    g = 0
-    loss_value = 0
-    for all_state in reversed(path):
-        g = all_state[2] + gamma * g
-        optimizer.zero_grad()
-        outputs = net(all_state[0], all_state[1])
-        g_tensor = torch.tensor([[g]], dtype=torch.float)
-        loss = criterion(outputs, g_tensor)
+        loss = self._criterion(outputs, g_tensor)
         loss.backward()
-        optimizer.step()
-        loss_value += loss.item()
-    print('Epoch {}: step={}, loss={}'.format(epoch, len(path), loss_value / len(path)))
+        self._optimizer.step()
+
+        return loss.item()
+
+
+def main():
+    env = gym.make('CartPole-v0')
     env.reset()
-env.close()
+    net = Net()
+
+    agent = MCAgent(net, env.action_space.n)
+
+    for epoch in range(300):
+        state = np.array([0, 0, 0, 0], dtype=np.float32)
+        done = False
+        steps = 0
+        while not done:
+            action = agent.get_action(state, verbose=True)
+            ob, reward, done, info = env.step(action)
+            agent.record(state, action, reward)
+            # env.render()
+            state = ob
+            steps += 1
+
+        loss = agent.train()
+        print('Epoch {}: step={}, loss={}'.format(epoch, steps, loss))
+        env.reset()
+    env.close()
+
+
+if __name__ == '__main__':
+    main()
 
