@@ -1,6 +1,6 @@
-import gym
-from functools import reduce
+import os
 import numpy as np
+import gym
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -56,7 +56,7 @@ class Memory:
 
 class MCAgent:
 
-    def __init__(self, model, action_space, epsilon=0.05, gamma=0.1):
+    def __init__(self, model: torch.nn.Module, action_space, epsilon=0.05, gamma=0.1, model_file=None):
         self._model = model
         self._action_space = action_space
         self._epsilon = epsilon
@@ -65,6 +65,10 @@ class MCAgent:
         self._memory = Memory()
         self._optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
         self._criterion = nn.MSELoss()
+
+        self._model_file = model_file
+        if model_file is not None and os.path.exists(model_file):
+            self._model.load_state_dict(torch.load(model_file))
 
     def get_action(self, s, verbose=False):
         # s.shape: m * n
@@ -105,20 +109,27 @@ class MCAgent:
 
         return loss.item()
 
+    def dump(self, file=None):
+        if file is None:
+            file = self._model_file
+        if file is None:
+            return
+        torch.save(self._model.state_dict(), file)
+
 
 def main():
     env = gym.make('CartPole-v0')
     env.reset()
     net = Net()
 
-    agent = MCAgent(net, env.action_space.n)
+    agent = MCAgent(net, env.action_space.n, gamma=0.2, model_file='./model/mc.model')
 
     for epoch in range(300):
         state = np.array([0, 0, 0, 0], dtype=np.float32)
         done = False
         steps = 0
         while not done:
-            action = agent.get_action(state, verbose=True)
+            action = agent.get_action(state, verbose=False)
             ob, reward, done, info = env.step(action)
             agent.record(state, action, reward)
             # env.render()
@@ -129,6 +140,7 @@ def main():
         print('Epoch {}: step={}, loss={}'.format(epoch, steps, loss))
         env.reset()
     env.close()
+    agent.dump()
 
 
 if __name__ == '__main__':
