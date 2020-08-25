@@ -1,4 +1,5 @@
 import os
+import logging
 import argparse
 
 import numpy as np
@@ -27,8 +28,14 @@ class Net(torch.nn.Module):
         self.output = torch.nn.Linear(128, 1)
 
     def forward(self, s, a):
-        s_tensor = torch.tensor(s, dtype=torch.float)
-        a_tensor = torch.tensor(a, dtype=torch.long)
+        if not isinstance(s, torch.Tensor):
+            s_tensor = torch.tensor(s, dtype=torch.float)
+        else:
+            s_tensor = s
+        if not isinstance(a, torch.Tensor):
+            a_tensor = torch.tensor(a, dtype=torch.long)
+        else:
+            a_tensor = a
         a_embed = self.action_embed(a_tensor)
         s_embed = F.relu(self.state_trans(s_tensor))
         sa = torch.cat((s_embed, a_embed), dim=-1)
@@ -51,18 +58,23 @@ class Memory:
 
     @property
     def s_tensor(self):
-        return torch.tensor(self._s)
+        return torch.tensor(self._s, dtype=torch.float)
 
     @property
     def a_tensor(self):
-        return torch.tensor(self._a)
+        return torch.tensor(self._a, dtype=torch.long)
 
     @property
     def r_tensor(self):
-        return torch.tensor(self._r)
+        return torch.tensor(self._r, dtype=torch.float)
 
     def r_list(self):
         return list(self._r)
+
+    def forget(self):
+        self._s.clear()
+        self._a.clear()
+        self._r.clear()
 
 
 class MCAgent:
@@ -81,7 +93,7 @@ class MCAgent:
         if model_file is not None and os.path.exists(model_file):
             self._model.load_state_dict(torch.load(model_file))
 
-    def get_action(self, s, verbose=False):
+    def get_action(self, s):
         # s.shape: m * n
         # a.shape: m
         max_q, max_a = 1, -1
@@ -89,16 +101,14 @@ class MCAgent:
         import random
         if random.uniform(0, 1) < self._epsilon:
             max_a = random.randint(0, self._action_space - 1)
-            if verbose:
-                print('explore {}'.format(max_a))
+            logging.debug('explore')
         else:
             for a in range(self._action_space):
                 q = self._model(s, a).item()
-                if verbose:
-                    print('{}, {} has value: {}'.format(s, a, q))
+                logging.debug('{}, {} has value: {}'.format(s, a, q))
                 if max_a == -1 or max_q < q:
                     max_q, max_a = q, a
-
+        logging.debug('choose {}'.format(max_a))
         return max_a
 
     def record(self, s, a, r):
@@ -117,6 +127,8 @@ class MCAgent:
         loss = self._criterion(outputs, g_tensor)
         loss.backward()
         self._optimizer.step()
+
+        self._memory.forget()
 
         return loss.item()
 
@@ -151,7 +163,7 @@ def main(**kwargs):
             steps += 1
 
         loss = agent.train()
-        print('Epoch {}: step={}, loss={}'.format(epoch, steps, loss))
+        logging.info('Epoch {}: step={}, loss={}'.format(epoch, steps, loss))
         env.reset()
     env.close()
     if kwargs['save']:
@@ -161,5 +173,8 @@ def main(**kwargs):
 if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     main(**vars(args))
-
