@@ -10,14 +10,19 @@ from memory import Memory
 
 class Agent(metaclass=ABCMeta):
 
-    def __init__(self, model: torch.nn.Module, action_space, epsilon=0.05, gamma=0.1, model_file=None):
+    def __init__(self, model: torch.nn.Module, action_space, epsilon=0.05, gamma=0.1,
+                 optimizer: torch.optim.Optimizer = None,
+                 model_file=None):
         self._model = model
         self._action_space = action_space
         self._epsilon = epsilon
         self._gamma = gamma
 
         self._memory = Memory()
-        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
+        if optimizer is None:
+            self._optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
+        else:
+            self._optimizer = optimizer
         self._criterion = nn.MSELoss()
 
         self._model_file = model_file
@@ -48,9 +53,9 @@ class Agent(metaclass=ABCMeta):
     def train(self):
         self._optimizer.zero_grad()
 
-        q_tensor = self._model(self._memory.s_tensor, self._memory.a_tensor)
-
-        g_tensor = self.get_return(self._memory.r_list(), q_tensor)
+        memory = self._memory
+        q_tensor = self._model(memory.s_tensor, memory.a_tensor)
+        g_tensor = self.get_return(memory.r_list(), q_tensor)
 
         loss = self._criterion(q_tensor, g_tensor)
         loss.backward()
