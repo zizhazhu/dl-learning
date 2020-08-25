@@ -152,10 +152,8 @@ def main(**kwargs):
         done = False
         steps = 0
         while not done:
-            action = agent.get_action(state, verbose=kwargs['verbose'])
+            action = agent.get_action(state)
             ob, reward, done, info = env.step(action)
-            if done and steps != 199:
-                reward = 0
             agent.record(state, action, reward)
             if kwargs['render']:
                 env.render()
