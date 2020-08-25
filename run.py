@@ -1,4 +1,3 @@
-import os
 import logging
 import argparse
 
@@ -8,6 +7,8 @@ import gym
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from agent import TDAgent
 
 
 def get_parser():
@@ -44,108 +45,12 @@ class Net(torch.nn.Module):
         return q
 
 
-class Memory:
-
-    def __init__(self):
-        self._s = []
-        self._a = []
-        self._r = []
-
-    def add(self, s, a, r):
-        self._s.append(s)
-        self._a.append(a)
-        self._r.append(r)
-
-    @property
-    def s_tensor(self):
-        return torch.tensor(self._s, dtype=torch.float)
-
-    @property
-    def a_tensor(self):
-        return torch.tensor(self._a, dtype=torch.long)
-
-    @property
-    def r_tensor(self):
-        return torch.tensor(self._r, dtype=torch.float)
-
-    def r_list(self):
-        return list(self._r)
-
-    def forget(self):
-        self._s.clear()
-        self._a.clear()
-        self._r.clear()
-
-
-class MCAgent:
-
-    def __init__(self, model: torch.nn.Module, action_space, epsilon=0.05, gamma=0.1, model_file=None):
-        self._model = model
-        self._action_space = action_space
-        self._epsilon = epsilon
-        self._gamma = gamma
-
-        self._memory = Memory()
-        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
-        self._criterion = nn.MSELoss()
-
-        self._model_file = model_file
-        if model_file is not None and os.path.exists(model_file):
-            self._model.load_state_dict(torch.load(model_file))
-
-    def get_action(self, s):
-        # s.shape: m * n
-        # a.shape: m
-        max_q, max_a = 1, -1
-
-        import random
-        if random.uniform(0, 1) < self._epsilon:
-            max_a = random.randint(0, self._action_space - 1)
-            logging.debug('explore')
-        else:
-            for a in range(self._action_space):
-                q = self._model(s, a).item()
-                logging.debug('{}, {} has value: {}'.format(s, a, q))
-                if max_a == -1 or max_q < q:
-                    max_q, max_a = q, a
-        logging.debug('choose {}'.format(max_a))
-        return max_a
-
-    def record(self, s, a, r):
-        self._memory.add(s, a, r)
-
-    def train(self):
-        self._optimizer.zero_grad()
-
-        g_list = self._memory.r_list()
-        for i in range(len(g_list) - 2, -1, -1):
-            g_list[i] += self._gamma * g_list[i+1]
-        g_tensor = torch.tensor(g_list)
-
-        outputs = self._model(self._memory.s_tensor, self._memory.a_tensor)
-
-        loss = self._criterion(outputs, g_tensor)
-        loss.backward()
-        self._optimizer.step()
-
-        self._memory.forget()
-
-        return loss.item()
-
-    def dump(self, file=None):
-        if file is None:
-            file = self._model_file
-        if file is None:
-            return
-        torch.save(self._model.state_dict(), file)
-
-
 def main(**kwargs):
     env = gym.make('CartPole-v0')
     env.reset()
     net = Net()
 
-    agent = MCAgent(net, env.action_space.n, gamma=0.2, model_file='./model/mc.model')
+    agent = TDAgent(net, env.action_space.n, gamma=0.2, model_file='./model/mc.model')
 
     for epoch in range(300):
         state = np.array([0, 0, 0, 0], dtype=np.float32)
