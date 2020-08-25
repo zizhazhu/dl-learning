@@ -1,9 +1,18 @@
 import os
+import argparse
+
 import numpy as np
+
 import gym
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+def get_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--render', '-r', action='store_true')
+    return parser
 
 
 class Net(torch.nn.Module):
@@ -117,7 +126,7 @@ class MCAgent:
         torch.save(self._model.state_dict(), file)
 
 
-def main():
+def main(**kwargs):
     env = gym.make('CartPole-v0')
     env.reset()
     net = Net()
@@ -132,7 +141,8 @@ def main():
             action = agent.get_action(state, verbose=False)
             ob, reward, done, info = env.step(action)
             agent.record(state, action, reward)
-            # env.render()
+            if kwargs['render']:
+                env.render()
             state = ob
             steps += 1
 
@@ -144,5 +154,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = get_parser()
+    args = parser.parse_args()
+    main(**vars(args))
 
