@@ -12,6 +12,8 @@ import torch.nn.functional as F
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--render', '-r', action='store_true')
+    parser.add_argument('--save', '-S', action='store_true')
+    parser.add_argument('--verbose', '-V', action='store_true')
     return parser
 
 
@@ -138,8 +140,10 @@ def main(**kwargs):
         done = False
         steps = 0
         while not done:
-            action = agent.get_action(state, verbose=False)
+            action = agent.get_action(state, verbose=kwargs['verbose'])
             ob, reward, done, info = env.step(action)
+            if done and steps != 199:
+                reward = 0
             agent.record(state, action, reward)
             if kwargs['render']:
                 env.render()
@@ -150,7 +154,8 @@ def main(**kwargs):
         print('Epoch {}: step={}, loss={}'.format(epoch, steps, loss))
         env.reset()
     env.close()
-    agent.dump()
+    if kwargs['save']:
+        agent.dump()
 
 
 if __name__ == '__main__':
