@@ -53,7 +53,7 @@ class Net(torch.nn.Module):
         sa = F.relu(self.fc(sa))
         sa = F.relu(self.fc2(sa))
 
-        q = self.output(sa)
+        q = torch.squeeze(self.output(sa), dim=-1)
         return q
 
 
@@ -63,7 +63,7 @@ def main(**kwargs):
     net = Net()
 
     optimizer = torch.optim.Adam(net.parameters(), lr=0.001, weight_decay=0.01)
-    agent = TDAgent(net, env.action_space.n, gamma=0.5, epsilon=0.1,
+    agent = TDAgent(net, env.action_space.n, gamma=0.1, epsilon=0.1,
                     optimizer=optimizer, model_file='./model/mc.model')
     agent.learn(env, 300, render=kwargs['render'])
 
