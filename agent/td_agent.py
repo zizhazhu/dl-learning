@@ -27,8 +27,6 @@ class TDAgent(Agent):
             while not done:
                 action = self.get_one_action(state)
                 ob, reward, done, info = env.step(action)
-                if done and steps < 199:
-                    reward = 0
                 self.record(state, action, reward, s_prime=ob)
                 if render:
                     env.render()
