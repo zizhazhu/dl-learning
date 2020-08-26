@@ -29,13 +29,18 @@ class Agent(metaclass=ABCMeta):
         if model_file is not None and os.path.exists(model_file):
             self._model.load_state_dict(torch.load(model_file))
 
-    def get_action(self, s):
+    def get_action(self, states, explore=True):
         # s.shape: m * n
         # a.shape: m
-        max_q, max_a = 1, -1
+        a_list = []
+        for state in states:
+            a_list.append(self.get_one_action(state, explore))
+        return a_list
 
+    def get_one_action(self, s, explore=True):
         import random
-        if random.uniform(0, 1) < self._epsilon:
+        max_q, max_a = 0, -1
+        if explore and random.uniform(0, 1) < self._epsilon:
             max_a = random.randint(0, self._action_space - 1)
             logging.debug('explore')
         else:
@@ -47,15 +52,15 @@ class Agent(metaclass=ABCMeta):
         logging.debug('choose {}'.format(max_a))
         return max_a
 
-    def record(self, s, a, r):
-        self._memory.add(s, a, r)
+    def record(self, s, a, r, s_prime=None):
+        self._memory.add(s, a, r, s_prime)
 
     def train(self):
         self._optimizer.zero_grad()
 
         memory = self._memory
         q_tensor = self._model(memory.s_tensor, memory.a_tensor)
-        g_tensor = self.get_return(memory.r_list(), q_tensor)
+        g_tensor = self.get_return(memory, q_tensor)
 
         loss = self._criterion(q_tensor, g_tensor)
         loss.backward()
@@ -75,3 +80,7 @@ class Agent(metaclass=ABCMeta):
         if file is None:
             return
         torch.save(self._model.state_dict(), file)
+
+    @abstractmethod
+    def learn(self, env, epochs):
+        raise NotImplemented()

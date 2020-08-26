@@ -53,7 +53,7 @@ class Net(torch.nn.Module):
         sa = F.relu(self.fc(sa))
         sa = F.relu(self.fc2(sa))
 
-        q = torch.squeeze(self.output(sa))
+        q = self.output(sa)
         return q
 
 
@@ -65,23 +65,8 @@ def main(**kwargs):
     optimizer = torch.optim.Adam(net.parameters(), lr=0.001, weight_decay=0.01)
     agent = TDAgent(net, env.action_space.n, gamma=0.5, epsilon=0.1,
                     optimizer=optimizer, model_file='./model/mc.model')
+    agent.learn(env, 300, render=kwargs['render'])
 
-    for epoch in range(300):
-        state = np.array([0, 0, 0, 0], dtype=np.float32)
-        done = False
-        steps = 0
-        while not done:
-            action = agent.get_action(state)
-            ob, reward, done, info = env.step(action)
-            agent.record(state, action, reward)
-            if kwargs['render']:
-                env.render()
-            state = ob
-            steps += 1
-
-        loss = agent.train()
-        logging.info('Epoch {}: step={}, loss={}'.format(epoch, steps, loss))
-        env.reset()
     env.close()
     if kwargs['save']:
         agent.dump()
