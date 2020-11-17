@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 import torch
 import torch.nn as nn
 
-from memory import Memory
+from src.rllib.memory import Memory
 
 
 class Agent(metaclass=ABCMeta):

@@ -5,7 +5,7 @@ import gym
 import torch
 import torch.nn.functional as F
 
-from agent import MCAgent
+from rllib.agent import MCAgent
 
 
 def get_parser():
@@ -52,7 +52,7 @@ def main(**kwargs):
 
     optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
     agent = MCAgent(net, env.action_space.n, gamma=0.1, epsilon=0.05,
-                    optimizer=optimizer, model_file='./model/mc.model')
+                    optimizer=optimizer, model_file='../../model/mc.model')
     agent.learn(env, 300, render=kwargs['render'])
 
     env.close()
