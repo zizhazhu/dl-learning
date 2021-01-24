@@ -8,8 +8,6 @@ import logging
 from torch.distributions.categorical import Categorical
 import torch.nn.functional as F
 
-from rllib.agent.mc_agent import MCAgent
-
 
 class Net(torch.nn.Module):
 
@@ -67,7 +65,8 @@ class PolicyGradient:
     def compute_loss(self, obs, act, weights) -> torch.Tensor:
         log_p = self.get_policy(obs).log_prob(act)
         # 因为优化器是梯度下降，所以取负
-        return - (log_p * weights).mean()
+        weighted_logp = - log_p * weights
+        return weighted_logp.mean()
 
 
 def train(epoch=1, gamma=1.0, render=False, model_path='./model/FrozenLake-v0/pg.model'):
@@ -106,7 +105,7 @@ def train(epoch=1, gamma=1.0, render=False, model_path='./model/FrozenLake-v0/pg
             g_return = reward + gamma * g_return
 
             batch_act.append(action)
-        batch_weights.append([g_return] * tra_length)
+        batch_weights.extend([g_return] * tra_length)
 
         optimizer.zero_grad()
         loss = agent.compute_loss(

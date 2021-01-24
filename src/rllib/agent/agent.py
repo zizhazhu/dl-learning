@@ -10,19 +10,19 @@ from src.rllib.memory import Memory
 
 class Agent(metaclass=ABCMeta):
 
-    def __init__(self, model: torch.nn.Module, action_space, epsilon=0.05, gamma=0.1,
-                 optimizer: torch.optim.Optimizer = None,
-                 model_file=None):
+    def __init__(self, model: torch.nn.Module, action_space, ob_space, epsilon=0.05, gamma=0.1, lr=0.001,
+                 optimizer: type = None, model_file=None):
         self._model = model
         self._action_space = action_space
+        self._ob_space = ob_space
         self._epsilon = epsilon
         self._gamma = gamma
 
         self._memory = Memory()
         if optimizer is None:
-            self._optimizer = torch.optim.Adam(self._model.parameters(), lr=0.001)
+            self._optimizer = torch.optim.Adam(self._model.parameters(), lr=lr)
         else:
-            self._optimizer = optimizer
+            self._optimizer = optimizer(self._model.parameters(), lr=lr)
         self._criterion = nn.MSELoss()
 
         self._model_file = model_file

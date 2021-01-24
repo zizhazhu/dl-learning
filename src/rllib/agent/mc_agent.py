@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import torch
 
 from .agent import Agent
@@ -17,7 +18,7 @@ class MCAgent(Agent):
 
     def learn(self, env, epochs=100, render=False):
         for epoch in range(epochs):
-            state = [.0, .0, .0, .0]
+            state = np.zeros(self._ob_space)
             done = False
             steps = 0
             while not done:
