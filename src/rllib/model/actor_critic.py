@@ -32,7 +32,7 @@ class Critic(nn.Module):
 
     def forward(self, obs, act):
         all_input = torch.cat([obs, act], dim=-1)
-        return self.layers(all_input)
+        return torch.squeeze(self.layers(all_input), -1)
 
 
 class ActorCritic(nn.Module):

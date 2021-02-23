@@ -104,12 +104,11 @@ def train(epoch=1, gamma=1.0, polyak=0.995, noise_scale=0.1, batch_size=100, ren
             obs = obs_next
 
             if done:
-                logging.info(f"Return:{rsum} Length:{rlen}")
+                logging.info(f"Policy_loss:{loss_pi:.3} Value_loss:{loss_q:.3} Reward:{reward} Return:{rsum} Length:{rlen}")
                 obs, rsum, rlen = env.reset(), 0.0, 0
 
             # TODO: update after & update_every
-            loss_pi, loss_q = update(buffer.sample_batch(batch_size))
-            # logging.info(f"Policy_loss:{loss_pi:.3} Value_loss:{loss_q:.3} Reward:{reward} Return:{rsum} Length:{rlen}")
+            loss_q, loss_pi = update(buffer.sample_batch(batch_size))
             # logging.info("")
 
     for epoch_n in range(epoch):
