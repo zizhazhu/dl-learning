@@ -41,7 +41,7 @@ class ActorCritic(nn.Module):
         super().__init__()
         self.observation_dim = observation_space.shape[0]
         self.action_dim = action_space.shape[0]
-        self.act_limit = observation_space.high[0]
+        self.act_limit = action_space.high[0]
         self.pi = Actor(self.observation_dim, self.action_dim, self.act_limit, hidden_sizes)
         self.q = Critic(self.observation_dim, self.action_dim, hidden_sizes)
 
