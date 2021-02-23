@@ -44,7 +44,7 @@ class DDPG:
         return loss
 
 
-def train(epoch=1, gamma=1.0, polyak=0.995, batch_size=100, render=False, model_path='./model/Pendulum-v0/vpg.model'):
+def train(epoch=1, gamma=1.0, polyak=0.995, noise_scale=0.1, batch_size=100, render=False, model_path='./model/Pendulum-v0/vpg.model'):
     env = gym.make('Pendulum-v0')
     observation_space, action_space = env.observation_space, env.action_space
     steps = 200
@@ -96,7 +96,7 @@ def train(epoch=1, gamma=1.0, polyak=0.995, batch_size=100, render=False, model_
 
             # TODO: start step
             # 逆时针是正的
-            action = agent.get_action(obs)
+            action = agent.get_action(obs, noise_scale=noise_scale)
             obs_next, reward, done, _ = env.step(action)
             rsum += reward
             rlen += 1
@@ -104,12 +104,13 @@ def train(epoch=1, gamma=1.0, polyak=0.995, batch_size=100, render=False, model_
             obs = obs_next
 
             if done:
+                logging.info(f"Return:{rsum} Length:{rlen}")
                 obs, rsum, rlen = env.reset(), 0.0, 0
 
             # TODO: update after & update_every
             loss_pi, loss_q = update(buffer.sample_batch(batch_size))
-            logging.info(f"Policy_loss:{loss_pi:.3} Value_loss:{loss_q:.3} Reward:{reward} Return:{rsum} Length:{rlen}")
-            logging.info("")
+            # logging.info(f"Policy_loss:{loss_pi:.3} Value_loss:{loss_q:.3} Reward:{reward} Return:{rsum} Length:{rlen}")
+            # logging.info("")
 
     for epoch_n in range(epoch):
         logging.info(f"Epoch {epoch_n}:")
@@ -118,7 +119,7 @@ def train(epoch=1, gamma=1.0, polyak=0.995, batch_size=100, render=False, model_
     env.close()
     directory, file = os.path.split(model_path)
     if not os.path.exists(directory):
-        os.mkdir(directory)
+        os.makedirs(directory)
     torch.save(ac.state_dict(), model_path)
 
 
