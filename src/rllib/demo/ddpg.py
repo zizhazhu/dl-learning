@@ -84,7 +84,6 @@ def train(epoch=1, gamma=1.0, polyak=0.995, batch_size=100, render=False, model_
                 para_target.data.add_((1 - polyak) * para.data)
 
         return loss_q, loss_pi
-        logging.info(f"")
 
     def one_epoch():
 
