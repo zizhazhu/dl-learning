@@ -39,7 +39,7 @@ class DDPG:
 
         with torch.no_grad():
             target = self._ac_target_model.q(obs2, self._ac_target_model.pi(obs2))
-            target = reward + target
+            target = reward + self.gamma * target
 
         loss = torch.nn.functional.mse_loss(q, target)
         return loss
