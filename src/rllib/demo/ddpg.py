@@ -16,14 +16,15 @@ from rllib.model.actor_critic import ActorCritic
 
 class DDPG:
 
-    def __init__(self, ac_model: ActorCritic):
+    def __init__(self, ac_model: ActorCritic, gamma=1.0):
         self._ac_model = ac_model
         self._ac_target_model = deepcopy(ac_model)
+        self.gamma = gamma
 
     def get_action(self, obs, noise_scale=0.0):
         obs = torch.as_tensor(obs, dtype=torch.float32)
         action = self._ac_model.act(obs).numpy()
-        action += noise_scale * np.random.rand(self._ac_model.action_dim)
+        action += noise_scale * (np.random.rand(self._ac_model.action_dim) - 0.5)
         return np.clip(action, -self._ac_model.act_limit, self._ac_model.act_limit)
 
     def compute_pi_loss(self, data) -> torch.Tensor:
@@ -44,18 +45,21 @@ class DDPG:
         return loss
 
 
-def train(epoch=1, gamma=1.0, polyak=0.995, noise_scale=0.1, batch_size=100, render=False, model_path='./model/Pendulum-v0/vpg.model'):
-    env = gym.make('Pendulum-v0')
+def train(epoch=1, gamma=1.0, polyak=0.995, noise_scale=0.1, batch_size=100, render=False,
+          env_name='Pendulum-v0', model_path='./model/ddpg/'):
+    env = gym.make(env_name)
+    model_file = os.path.join(model_path, env_name + '.model')
     observation_space, action_space = env.observation_space, env.action_space
     steps = 200
 
     ac = ActorCritic(env.observation_space, env.action_space)
 
-    if os.path.exists(model_path):
-        state_dict = torch.load(model_path)
+    if os.path.exists(model_file):
+        state_dict = torch.load(model_file)
         ac.load_state_dict(state_dict)
+        logging.info('Load model successfully')
 
-    agent = DDPG(ac)
+    agent = DDPG(ac, gamma=gamma)
     pi_optimizer = torch.optim.Adam(ac.pi.parameters())
     q_optimizer = torch.optim.Adam(ac.q.parameters())
 
@@ -116,12 +120,12 @@ def train(epoch=1, gamma=1.0, polyak=0.995, noise_scale=0.1, batch_size=100, ren
         one_epoch()
 
     env.close()
-    directory, file = os.path.split(model_path)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    torch.save(ac.state_dict(), model_path)
+    if not os.path.exists(model_path):
+        os.makedirs(model_path)
+    torch.save(ac.state_dict(), model_file)
+    logging.info("Dump model")
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    train(gamma=0.99, epoch=3, render=True)
+    train(gamma=0.99, polyak=0.995, epoch=30, render=False, env_name='MountainCarContinuous-v0')
