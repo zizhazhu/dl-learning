@@ -20,7 +20,9 @@ class Actor(nn.Module):
         self.act_limit = act_limit
 
     def forward(self, obs):
-        return self.act_limit * self.layers(obs)
+        output = self.layers(obs)
+        scale_output = self.act_limit * output
+        return scale_output
 
 
 class Critic(nn.Module):
