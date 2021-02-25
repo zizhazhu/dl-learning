@@ -19,6 +19,8 @@ class DDPG:
     def __init__(self, ac_model: ActorCritic, gamma=1.0):
         self._ac_model = ac_model
         self._ac_target_model = deepcopy(ac_model)
+        for para in self._ac_target_model.parameters():
+            para.requires_grad = False
         self.gamma = gamma
 
     def get_action(self, obs, noise_scale=0.0):
@@ -39,6 +41,7 @@ class DDPG:
 
         with torch.no_grad():
             target = self._ac_target_model.q(obs2, self._ac_target_model.pi(obs2))
+            # TODO: done
             target = reward + self.gamma * target
 
         loss = torch.nn.functional.mse_loss(q, target)
@@ -50,7 +53,7 @@ def train(epoch=1, gamma=1.0, polyak=0.995, noise_scale=0.1, batch_size=100, ren
     env = gym.make(env_name)
     model_file = os.path.join(model_path, env_name + '.model')
     observation_space, action_space = env.observation_space, env.action_space
-    steps = 200
+    steps = 1000
 
     ac = ActorCritic(env.observation_space, env.action_space)
 
@@ -114,6 +117,8 @@ def train(epoch=1, gamma=1.0, polyak=0.995, noise_scale=0.1, batch_size=100, ren
             # TODO: update after & update_every
             loss_q, loss_pi = update(buffer.sample_batch(batch_size))
             # logging.info("")
+
+        logging.info(f"Policy_loss:{loss_pi:.3} Value_loss:{loss_q:.3} Reward:{reward} Return:{rsum} Length:{rlen}")
 
     for epoch_n in range(epoch):
         logging.info(f"Epoch {epoch_n}:")
