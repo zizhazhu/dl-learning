@@ -11,7 +11,7 @@ from torch.distributions.categorical import Categorical
 import torch.nn.functional as F
 
 from rllib.memory.replay_buffer import ReplayBuffer
-from rllib.model.actor_critic import ActorCritic
+from rllib.model.dqn_actor_critic import ActorCritic
 
 
 class DDPG:
