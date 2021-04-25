@@ -92,37 +92,29 @@ def train(epoch=1, gamma=1.0, polyak=0.995, noise_scale=0.1, batch_size=100, ren
 
         return loss_q, loss_pi
 
-    def one_epoch():
+    obs, done = env.reset(), False
+    rsum, rlen = 0.0, 0
 
-        obs, done = env.reset(), False
-        rsum, rlen = 0.0, 0
+    for t in range(steps):
+        if render:
+            env.render()
 
-        for t in range(steps):
-            if render:
-                env.render()
+        # TODO: start step
+        # 逆时针是正的
+        action = agent.get_action(obs, noise_scale=noise_scale)
+        obs_next, reward, done, _ = env.step(action)
+        rsum += reward
+        rlen += 1
+        buffer.store(obs, action, reward, obs_next, done)
+        obs = obs_next
 
-            # TODO: start step
-            # 逆时针是正的
-            action = agent.get_action(obs, noise_scale=noise_scale)
-            obs_next, reward, done, _ = env.step(action)
-            rsum += reward
-            rlen += 1
-            buffer.store(obs, action, reward, obs_next, done)
-            obs = obs_next
+        if done:
+            logging.info(f"Policy_loss:{loss_pi:.3} Value_loss:{loss_q:.3} Reward:{reward} Return:{rsum} Length:{rlen}")
+            obs, rsum, rlen = env.reset(), 0.0, 0
 
-            if done:
-                logging.info(f"Policy_loss:{loss_pi:.3} Value_loss:{loss_q:.3} Reward:{reward} Return:{rsum} Length:{rlen}")
-                obs, rsum, rlen = env.reset(), 0.0, 0
-
-            # TODO: update after & update_every
-            loss_q, loss_pi = update(buffer.sample_batch(batch_size))
-            # logging.info("")
-
-        logging.info(f"Policy_loss:{loss_pi:.3} Value_loss:{loss_q:.3} Reward:{reward} Return:{rsum} Length:{rlen}")
-
-    for epoch_n in range(epoch):
-        logging.info(f"Epoch {epoch_n}:")
-        one_epoch()
+        # TODO: update after & update_every
+        loss_q, loss_pi = update(buffer.sample_batch(batch_size))
+        # logging.info("")
 
     env.close()
     if not os.path.exists(model_path):
